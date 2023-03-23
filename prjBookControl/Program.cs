@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.Design;
+using System.Security.AccessControl;
 using prjBookControl;
 
 internal class Program
@@ -21,8 +22,11 @@ internal class Program
                 case 1:
                     Book newBook;
                     newBook = CreateBook();
-                    if (newBook != null) 
+                    if (newBook != null)
+                    {
                         shelf.Add(newBook);
+                        Console.WriteLine("\nLIVRO INSERIDO COM SUCESSO!\n Escolha a opção 5 para salvar e atualizar\n");
+                    }
                     break;
 
                 case 2:
@@ -42,19 +46,22 @@ internal class Program
                     title = Console.ReadLine();
 
                     if (EditBook(title))
+                    {
                         Console.WriteLine("\nLIVRO EDITADO COM SUCESSO!\n");
+                        SaveShelf();
+                    }
                     else
                         Console.WriteLine("\nLIVRO NÃO ALTERADO!\n");
                     break;
 
                 case 4:
-                    Console.Write("\nDigite o titulo do livro a ser editado: ");
+                    Console.Write("\nDigite o titulo do livro a ser deletado: ");
                     title = Console.ReadLine();
 
                     if(DeleteBook(title))
-                        Console.WriteLine("LIVRO REMOVIDO COM SUCESSO!");
+                        Console.WriteLine("\nLIVRO REMOVIDO COM SUCESSO!\n Escolha a opção 5 para salvar e atualizar\n");
                     else
-                        Console.WriteLine("LIVRO NÃO REMOVIDO!");
+                        Console.WriteLine("\nLIVRO NÃO REMOVIDO!\n");
                     break;
 
                 case 5:
@@ -85,7 +92,7 @@ internal class Program
                                 "\n2 - Imprimir Estante" +
                                 "\n3 - Editar Livro" +
                                 "\n4 - Remover Livro" +
-                                "\n5 - Criar backup" +
+                                "\n5 - Criar backup e Recarregar" +
                                 "\n6 - Sair" +
                                 "\n\nEscolha uma opção:");
 
@@ -181,6 +188,16 @@ internal class Program
                 {
                     return shelf[book];
                 }
+            for (int book = 0; book < readings.Count; book++)
+                if (serchBook.Title == readings[book].Title)
+                {
+                    return readings[book];
+                }
+            for (int book = 0; book < lendeds.Count; book++)
+                if (serchBook.Title == lendeds[book].Title)
+                {
+                    return lendeds[book];
+                }
             return null;
         }
 
@@ -215,18 +232,8 @@ internal class Program
             Console.Write("Livro emprestado [S/N]: ");
             catchLended = char.TryParse(Console.ReadLine().ToUpper(), out char lended);
 
-            //int countAuthors = 0;
-            //do
-            //{
-            //    Console.Write((countAuthors + 1) + "o Autor do livro: ");
-            //    author = new Author(Console.ReadLine());
-            //    if (author.Name != "")
-            //        authors.Add(author);
-
-            //    countAuthors++;
-            //} while (author.Name != "");
-
             int countAuthors = 0;
+            int authorNotEdited = 0;
             foreach (Author authorToEdit in bookToEdit.Authors)
             {
                 Console.Write((countAuthors + 1) + "o Autor do livro: ");
@@ -235,9 +242,16 @@ internal class Program
                 if (author.Name != "")
                     authors.Add(author);
                 else
+                {
                     authors.Add(authorToEdit);
+                    authorNotEdited++;
+                }
 
                 countAuthors++;
+            }
+            if (authorNotEdited == bookToEdit.Authors.Count)
+            {
+                authors.Clear();
             }
 
             return bookToEdit.EditBook(title, edition, isbn, reading, lended, authors);
@@ -245,14 +259,21 @@ internal class Program
 
         bool DeleteBook(string title)
         {
-            Book bookToEdit = FindBook(title);
-            if (bookToEdit == null)
+            Book bookToRemove = FindBook(title);
+            if (bookToRemove == null)
             {
                 Console.WriteLine("\nLIVRO NÃO ENCONTRADO!\n");
                 return false;
             }
 
-            return shelf.Remove(bookToEdit);
+            if (shelf.Contains(bookToRemove))
+                return shelf.Remove(bookToRemove);
+            if (readings.Contains(bookToRemove))
+                return readings.Remove(bookToRemove);
+            if (lendeds.Contains(bookToRemove))
+                return lendeds.Remove(bookToRemove);
+
+            return false;
         }
 
         bool SaveShelf()
@@ -263,8 +284,14 @@ internal class Program
 
             foreach (Book book in shelf)
                 sw.WriteLine(book.ToBackup());
+            foreach (Book book in readings)
+                sw.WriteLine(book.ToBackup());
+            foreach (Book book in lendeds)
+                sw.WriteLine(book.ToBackup());
 
             sw.Close();
+
+            LoadBackup();
 
             return true;
         }
@@ -276,6 +303,10 @@ internal class Program
                 Console.WriteLine("\nESTANTE NÃO EXISTE!\n");
                 return false;
             }
+
+            shelf.Clear();
+            readings.Clear();
+            lendeds.Clear();
 
             StreamReader sr = new StreamReader("shelf.txt");
             sr.ReadLine();
@@ -307,7 +338,7 @@ internal class Program
                     shelf.Add(book);
             }
             sr.Close();
-            Console.WriteLine("\nESTANTE CARREGADA!\n");
+            Console.WriteLine("\nESTANTE CARREGADA E ATUALIZADA!\n");
             return true;
         }
     }

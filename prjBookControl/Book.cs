@@ -44,7 +44,7 @@ namespace prjBookControl
             else
                 countNotEdited++;
 
-            if (reading == 'S')
+            if (reading == 'S' && IsPossibleExchange(true, false))
                 Reading = true;
             else 
                 if(reading == 'N')
@@ -52,7 +52,7 @@ namespace prjBookControl
                 else
                     countNotEdited++;
 
-            if (lended == 'S')
+            if (lended == 'S' && IsPossibleExchange(false, true))
                 Lended = true;
             else 
                 if (lended == 'N')
@@ -65,9 +65,28 @@ namespace prjBookControl
             else
                 countNotEdited++;
 
-            Console.WriteLine("aqui: " + countNotEdited);
-
             if (countNotEdited > 5) return false; return true;
+        }
+
+        public bool IsPossibleExchange(bool reading, bool lended)
+        {
+            if (reading)
+            {
+                if (this.Lended) 
+                {
+                    Console.WriteLine("\nVocê não pode ler este livro no momento, pois ele esta emprestado\n");
+                    return false;
+                }
+            }
+            if (lended)
+            {
+                if(this.Reading) 
+                {
+                    Console.WriteLine("\nVocê não pode emprestar este livro no momento, pois você esta lendo ele\n");
+                    return false;
+                }
+            }
+            return true;
         }
 
         public override string ToString()
