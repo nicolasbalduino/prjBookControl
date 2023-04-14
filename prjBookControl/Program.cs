@@ -1,16 +1,22 @@
 ﻿using System.ComponentModel.Design;
 using System.Security.AccessControl;
+using MongoDB.Bson;
+using MongoDB.Driver;
+using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Driver.Core.Configuration;
 using prjBookControl;
+using MongoDB.Bson.Serialization;
+using static MongoDB.Driver.WriteConcern;
+using Microsoft.VisualBasic;
+using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations.Schema;
 
 internal class Program
 {
     private static void Main(string[] args)
     {
-        List<Book> shelf = new List<Book>();
-        List<Book> readings = new List<Book>();
-        List<Book> lendeds = new List<Book>();
-
-        LoadBackup();
+        var library = new Conect().MongoDB();
+        var books = library.GetCollection<BsonDocument>("Books");
 
         int option;
         do
@@ -23,10 +29,8 @@ internal class Program
                     Book newBook;
                     newBook = CreateBook();
                     if (newBook != null)
-                    {
-                        shelf.Add(newBook);
-                        Console.WriteLine("\nLIVRO INSERIDO COM SUCESSO!\n Escolha a opção 5 para salvar e atualizar\n");
-                    }
+                        Console.WriteLine("\nLIVRO INSERIDO COM SUCESSO!" +
+                            "\n Escolha a opção 5 para salvar e atualizar\n");
                     break;
 
                 case 2:
@@ -46,10 +50,7 @@ internal class Program
                     title = Console.ReadLine();
 
                     if (EditBook(title))
-                    {
                         Console.WriteLine("\nLIVRO EDITADO COM SUCESSO!\n");
-                        SaveShelf();
-                    }
                     else
                         Console.WriteLine("\nLIVRO NÃO ALTERADO!\n");
                     break;
@@ -58,21 +59,13 @@ internal class Program
                     Console.Write("\nDigite o titulo do livro a ser deletado: ");
                     title = Console.ReadLine();
 
-                    if(DeleteBook(title))
+                    if (DeleteBook(title))
                         Console.WriteLine("\nLIVRO REMOVIDO COM SUCESSO!\n Escolha a opção 5 para salvar e atualizar\n");
                     else
                         Console.WriteLine("\nLIVRO NÃO REMOVIDO!\n");
                     break;
 
                 case 5:
-                    Console.Clear();
-                    if (SaveShelf())
-                        Console.WriteLine("\nESTANTE SALVA!\n");
-                    else
-                        Console.WriteLine("\nFALHA AO SALVAR A ESTANTE!\n");
-                    break;
-
-                case 6:
                     System.Environment.Exit(0);
                     break;
 
@@ -81,8 +74,8 @@ internal class Program
                     Console.WriteLine("\nOpção Invalida. Tente novamente\n");
                     break;
             }
-            
-        } while (option != 6);
+
+        } while (option != 5);
 
 
         int Menu()
@@ -92,8 +85,7 @@ internal class Program
                                 "\n2 - Imprimir Estante" +
                                 "\n3 - Editar Livro" +
                                 "\n4 - Remover Livro" +
-                                "\n5 - Criar backup e Recarregar" +
-                                "\n6 - Sair" +
+                                "\n5 - Sair" +
                                 "\n\nEscolha uma opção:");
 
             bool catchOption = int.TryParse(Console.ReadLine(), out int option);
@@ -124,46 +116,71 @@ internal class Program
                 author = new Author(Console.ReadLine());
                 if (author.Name != "")
                     authors.Add(author);
-                
-                countAuthors++;
-            } while (author.Name != "");            
 
-            return new Book(title, edition, isbn, false, false, authors);
+                countAuthors++;
+            } while (author.Name != "");
+
+            Book newBook = new Book(title, edition, isbn, false, false, authors);
+
+            var nb = new BsonDocument
+            {
+                { "title", newBook.Title },
+                { "edition", newBook.Edition },
+                { "ISBN", newBook.Isbn },
+                { "reading", newBook.Reading },
+                { "lended", newBook.Lended },
+                {"author", newBook.AuthorsToBsonArray() },
+            };
+
+            books.InsertOne(nb);
+
+            return newBook;
         }
 
         void PrintShelf(int list)
         {
             Console.Clear();
 
-            if(list == 1) 
+            var builder = Builders<BsonDocument>.Filter;
+
+            if (list == 1)
             {
+                var filter = builder.Eq("reading", false) & builder.Eq("lended", false);
+                var shelf = books.Find(filter).ToList(); 
                 if (shelf.Count > 0)
                 {
                     Console.WriteLine("\nNA ESTANTE\n");
-                    foreach (Book book in shelf)
-                        Console.WriteLine(book.ToString());
+
+                    shelf.ForEach(book => Console.WriteLine(BsonSerializer.Deserialize<Book>(book).ToString()));
+                    //foreach (var book in shelf)
+                    //{
+                    //    Book b = BsonSerializer.Deserialize<Book>(book);
+                    //    Console.WriteLine(b.ToString());
+                    //}
                 }
                 else
                     Console.WriteLine("ESTANTE VAZIA!");
             }
-            else if(list == 2)
+            else if (list == 2)
             {
-                if (readings.Count > 0)
+                var filter = builder.Eq("reading", true) & builder.Eq("lended", false);
+                var reading = books.Find(filter).ToList();
+                if (reading.Count > 0)
                 {
                     Console.WriteLine("\nLENDO\n");
-                    foreach (Book book in readings)
-                        Console.WriteLine(book.ToString());
+                    reading.ForEach(book => Console.WriteLine(BsonSerializer.Deserialize<Book>(book).ToString()));
                 }
                 else
                     Console.WriteLine("VOCÊ NÃO ESTÁ LENDO NENHUM LIVRO!");
             }
-            else if( list == 3)
+            else if (list == 3)
             {
-                if (lendeds.Count > 0)
+                var filter = builder.Eq("reading", false) & builder.Eq("lended", true);
+                var lended = books.Find(filter).ToList();
+                if (lended.Count > 0)
                 {
                     Console.WriteLine("\nLIVROS EMPRESTADOS\n");
-                    foreach (Book book in lendeds)
-                        Console.WriteLine(book.ToString());
+                    lended.ForEach(book => Console.WriteLine(BsonSerializer.Deserialize<Book>(book).ToString()));
                 }
                 else
                     Console.WriteLine("NENHUM LIVRO EMPRESTADO!");
@@ -173,8 +190,6 @@ internal class Program
                 Console.WriteLine("ESCOLHA NÃO ENCONTRADA!");
             }
 
-            
-
             Console.WriteLine("Precione um tecla para continuar...");
             Console.ReadKey();
             Console.Clear();
@@ -182,22 +197,16 @@ internal class Program
 
         Book FindBook(string title)
         {
-            Book serchBook = new Book(title, 0, null, false, false, null);
-            for (int book = 0; book < shelf.Count; book++)
-                if(serchBook.Title == shelf[book].Title)
-                {
-                    return shelf[book];
-                }
-            for (int book = 0; book < readings.Count; book++)
-                if (serchBook.Title == readings[book].Title)
-                {
-                    return readings[book];
-                }
-            for (int book = 0; book < lendeds.Count; book++)
-                if (serchBook.Title == lendeds[book].Title)
-                {
-                    return lendeds[book];
-                }
+            var builder = Builders<BsonDocument>.Filter;
+            var filter = builder.Eq("title", title);
+            var b = books.Find(filter).FirstOrDefault();
+
+            if (b != null)
+            {
+                Book book = BsonSerializer.Deserialize<Book>(b);
+                Console.WriteLine(book.ToString());
+                return book;
+            }
             return null;
         }
 
@@ -254,7 +263,25 @@ internal class Program
                 authors.Clear();
             }
 
-            return bookToEdit.EditBook(title, edition, isbn, reading, lended, authors);
+            if (bookToEdit.EditBook(title, edition, isbn, reading, lended, authors))
+            {
+                var builder = Builders<BsonDocument>.Filter;
+                var filter = builder.Eq("_id", ObjectId.Parse(bookToEdit.Id));
+
+                var builderUpdate = Builders<BsonDocument>.Update;
+                var update = builderUpdate.Set("title", bookToEdit.Title)
+                                            .Set("edition", bookToEdit.Edition)
+                                            .Set("ISBN", bookToEdit.Isbn)
+                                            .Set("reading", bookToEdit.Reading)
+                                            .Set("lended", bookToEdit.Lended)
+                                            .Set("author", bookToEdit.Authors);
+                var updateBook = books.UpdateOne(filter, update);
+
+                if (updateBook.ModifiedCount > 0) return true;
+                else return false;
+            }
+
+            return false;
         }
 
         bool DeleteBook(string title)
@@ -266,80 +293,14 @@ internal class Program
                 return false;
             }
 
-            if (shelf.Contains(bookToRemove))
-                return shelf.Remove(bookToRemove);
-            if (readings.Contains(bookToRemove))
-                return readings.Remove(bookToRemove);
-            if (lendeds.Contains(bookToRemove))
-                return lendeds.Remove(bookToRemove);
+            var builder = Builders<BsonDocument>.Filter;
+            var filter = builder.Eq("_id", ObjectId.Parse(bookToRemove.Id));
+            var br = books.DeleteOne(filter);
+
+            if (br.DeletedCount > 0)
+                return true;
 
             return false;
-        }
-
-        bool SaveShelf()
-        {
-            StreamWriter sw = new StreamWriter("shelf.txt");
-
-            sw.WriteLine("titulo|edicao|ISBN|lendo|emprestado|autores");
-
-            foreach (Book book in shelf)
-                sw.WriteLine(book.ToBackup());
-            foreach (Book book in readings)
-                sw.WriteLine(book.ToBackup());
-            foreach (Book book in lendeds)
-                sw.WriteLine(book.ToBackup());
-
-            sw.Close();
-
-            LoadBackup();
-
-            return true;
-        }
-
-        bool LoadBackup()
-        {
-            if (!File.Exists("shelf.txt"))
-            {
-                Console.WriteLine("\nESTANTE NÃO EXISTE!\n");
-                return false;
-            }
-
-            shelf.Clear();
-            readings.Clear();
-            lendeds.Clear();
-
-            StreamReader sr = new StreamReader("shelf.txt");
-            sr.ReadLine();
-            while (!sr.EndOfStream)
-            {
-                List<Author> authors = new List<Author>();
-
-                string properties = sr.ReadLine();
-                string[] property = properties.Split('|');
-
-                string title = property[0];
-                int edition = int.Parse(property[1]);
-                string isbn = property[2];
-                bool reading = bool.Parse(property[3]);
-                bool lended = bool.Parse(property[4]);
-                for(int i = 5; i < property.Length; i++)
-                {
-                    Author author = new(property[i]);
-                    authors.Add(author);
-                }
-
-                Book book = new(title, edition, isbn, reading, lended, authors);
-
-                if(reading)
-                    readings.Add(book);
-                else if(lended)
-                    lendeds.Add(book);
-                else
-                    shelf.Add(book);
-            }
-            sr.Close();
-            Console.WriteLine("\nESTANTE CARREGADA E ATUALIZADA!\n");
-            return true;
         }
     }
 }

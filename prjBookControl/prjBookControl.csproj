@@ -15,4 +15,8 @@
     <None Include="C:\Users\user\source\repos\prjBookControl\prjBookControl\.editorconfig" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" Version="2.19.1" />
+  </ItemGroup>
+
 </Project>

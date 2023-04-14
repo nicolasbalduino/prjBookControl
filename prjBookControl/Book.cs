@@ -1,18 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson;
 
 namespace prjBookControl
 {
     internal class Book
     {
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? Id { get; set; }
+        
+        [BsonElement("title")]
         public string Title { get; set; }
+
+        [BsonElement("edition")]
         public int Edition { get; set; }
+
+        [BsonElement("ISBN")]
         public string Isbn { get; set; }
+
+        [BsonElement("reading")]
         public bool Reading { get; set; }
+
+        [BsonElement("lended")]
         public bool Lended { get; set; }
+
+        [BsonElement("author")]
         public List<Author> Authors { get; set; }
 
         public Book(string title, int edition, string isbn, bool reading, bool lended, List<Author> authors)
@@ -101,8 +113,7 @@ namespace prjBookControl
                 aux = aux.Remove(aux.Length - 1);
             }
 
-            return $"Titulo: {Title}\nEdição: {Edition}\nISBN: {Isbn}\nLendo: {Reading}" +
-                    $"\nEmprestado: {Lended}\nAutor(es):{aux}\n";
+            return $"Titulo: {Title}\nEdição: {Edition}\nISBN: {Isbn}\nAutor(es):{aux}\n";
         }
 
         public string ToBackup()
@@ -114,6 +125,17 @@ namespace prjBookControl
             }
 
             return $"{Title}|{Edition}|{Isbn}|{Reading}|{Lended}{aux}";
+        }
+
+        public BsonArray AuthorsToBsonArray()
+        {
+            BsonArray array = new BsonArray();
+            foreach (var author in this.Authors)
+            {
+                BsonDocument authorBson = new BsonDocument("name", author.ToString());
+                array.Add(authorBson);
+            }
+            return array ;
         }
     }
 }
